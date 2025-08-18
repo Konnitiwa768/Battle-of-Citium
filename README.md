@@ -33,7 +33,7 @@ https://konnitiwa768.github.io/Battle-of-Citium/3.html
 https://konnitiwa768.github.io/Battle-of-Citium/Yout2.html
 https://konnitiwa768.github.io/Battle-of-Citium/Kouseki2.html
 https://konnitiwa768.github.io/Battle-of-Citium/Truk.html
-https://konnitiwa768.github.io/Battle-of-Citium/3.html
+https://konnitiwa768.github.io/Battle-of-Citium/city.html
 https://konnitiwa768.github.io/Battle-of-Citium/Arr2.html
 https://konnitiwa768.github.io/Battle-of-Citium/Arr3.html
 https://konnitiwa768.github.io/Battle-of-Citium/Zpd3.html
