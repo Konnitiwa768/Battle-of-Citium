@@ -99,19 +99,16 @@ function getHeaders() {
   return { 'Content-Type':'application/json', 'X-Api-Key':document.getElementById('apiKey').value };
 }
 
-// --- ZpDIC API 関数群（省略なし） ---
 async function submitWord() {
   const id = document.getElementById('editWordNumber').value.trim();
   const path = id
     ? `/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/word/${encodeURIComponent(id)}`
     : `/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/word`;
   const method = id ? 'PUT' : 'POST';
-
   const infos = document.getElementById('editInformations').value.trim().split('\n').map(l => {
     const [title, text] = l.split('|');
     return { title: title?.trim(), text: text?.trim() };
   });
-
   const equivalentsText = document.getElementById('editEquivalents').value.trim().split('\n').map(line => {
     const [titlesPart, namesPart] = line.split('||');
     return {
@@ -121,7 +118,6 @@ async function submitWord() {
       ignoredPattern: "[\\(（].*?[\\)）]"
     };
   }).filter(eq => eq.names.length > 0);
-
   const body = { word:{
     name: document.getElementById('editWordName').value.trim(),
     pronunciation: document.getElementById('editPronunciation').value.trim(),
@@ -131,7 +127,6 @@ async function submitWord() {
     variations: document.getElementById('editVariations').value.split('|').filter(Boolean).map(n=>({name:n})),
     relations:[]
   }};
-
   const res = await fetch(apiBase+path,{method, headers:getHeaders(), body:JSON.stringify(body)});
   alert(res.ok ? `✅ 単語 ${id?'更新':'作成'} 成功` : `❌ エラー ${res.status}`);
 }
@@ -227,4 +222,116 @@ async function searchExamples() {
   document.getElementById('searchExampleResult').textContent=JSON.stringify(js.examples||js,null,2);
 }
 
-// --- 独自
+const keyboardLayoutFull = [
+  ['q','w','e','r','t','y','u','i','o','p'],
+  ['a','s','d','f','g','h','j','k','l'],
+  ['z','x','c','v','b','n','m'],
+  ['á','é','í','ó','ú','à','è','ì','ò','ù'],
+  ['ā','ē','ī','ō','ū','â','ê','î','ô','û'],
+  ['č','š','ž','ñ','ü','ö','ä']
+];
+function buildKeyboard() {
+  const container=document.getElementById('keyboardFull');
+  container.innerHTML='';
+  keyboardLayoutFull.forEach(row=>{
+    const rowDiv=document.createElement('div');
+    rowDiv.className='keyboard-row';
+    row.forEach(key=>{
+      const btn=document.createElement('button');
+      btn.textContent=key;
+      btn.className='key-btn';
+      btn.onclick=()=>insertChar(key);
+      rowDiv.appendChild(btn);
+    });
+    container.appendChild(rowDiv);
+  });
+  const delBtn=document.createElement('button');
+  delBtn.textContent='⌫';
+  delBtn.className='key-btn';
+  delBtn.onclick=deleteChar;
+  container.appendChild(delBtn);
+}
+function insertChar(char) {
+  const wordInput=document.getElementById('editWordNameKeyboard');
+  const suffixInput=document.getElementById('editSuffixKeyboard');
+  if(document.activeElement===wordInput) {
+    insertAtCursor(wordInput,char);
+    if(document.getElementById('enableSaveWord').checked) saveComponent('word',char);
+  } else if(document.activeElement===suffixInput) {
+    insertAtCursor(suffixInput,char);
+    if(document.getElementById('enableSaveSuffix').checked) saveComponent('suffix',char);
+  }
+}
+function insertAtCursor(input,char) {
+  const start=input.selectionStart;
+  const end=input.selectionEnd;
+  const before=input.value.substring(0,start);
+  const after=input.value.substring(end);
+  input.value=before+char+after;
+  input.selectionStart=input.selectionEnd=start+char.length;
+  input.focus();
+}
+function deleteChar() {
+  const wordInput=document.getElementById('editWordNameKeyboard');
+  const suffixInput=document.getElementById('editSuffixKeyboard');
+  if(document.activeElement===wordInput) {
+    removeAtCursor(wordInput);
+  } else if(document.activeElement===suffixInput) {
+    removeAtCursor(suffixInput);
+  }
+}
+function removeAtCursor(input) {
+  const start=input.selectionStart;
+  const end=input.selectionEnd;
+  if(start===end && start>0) {
+    input.value=input.value.substring(0,start-1)+input.value.substring(end);
+    input.selectionStart=input.selectionEnd=start-1;
+  } else {
+    input.value=input.value.substring(0,start)+input.value.substring(end);
+    input.selectionStart=input.selectionEnd=start;
+  }
+  input.focus();
+}
+function saveComponent(type,char) {
+  const key=type==='word'?'savedWordComponentsList':'savedSuffixComponentsList';
+  let list=JSON.parse(localStorage.getItem(key)||'[]');
+  if(!list.includes(char)) {
+    list.push(char);
+    localStorage.setItem(key,JSON.stringify(list));
+    refreshSavedComponents();
+  }
+}
+function refreshSavedComponents() {
+  const wordList=JSON.parse(localStorage.getItem('savedWordComponentsList')||'[]');
+  const suffixList=JSON.parse(localStorage.getItem('savedSuffixComponentsList')||'[]');
+  const wordSelect=document.getElementById('savedWordComponents');
+  const suffixSelect=document.getElementById('savedSuffixComponents');
+  wordSelect.innerHTML='<option value="">保存済み構成要素を選択</option>';
+  suffixSelect.innerHTML='<option value="">保存済み接尾辞を選択</option>';
+  wordList.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c;
+    opt.textContent=c;
+    wordSelect.appendChild(opt);
+  });
+  suffixList.forEach(c=>{
+    const opt=document.createElement('option');
+    opt.value=c;
+    opt.textContent=c;
+    suffixSelect.appendChild(opt);
+  });
+}
+function insertSavedWordComponent() {
+  const select=document.getElementById('savedWordComponents');
+  const value=select.value;
+  if(value) insertAtCursor(document.getElementById('editWordNameKeyboard'),value);
+}
+function insertSavedSuffixComponent() {
+  const select=document.getElementById('savedSuffixComponents');
+  const value=select.value;
+  if(value) insertAtCursor(document.getElementById('editSuffixKeyboard'),value);
+}
+window.onload=()=>{ buildKeyboard(); refreshSavedComponents(); };
+</script>
+</body>
+</html>
