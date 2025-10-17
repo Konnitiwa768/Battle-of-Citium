@@ -9,6 +9,8 @@ https://konnitiwa768.github.io/Battle-of-Citium/dokuzi.html
 
 https://konnitiwa768.github.io/Battle-of-Citium/Ekir3.html
 https://konnitiwa768.github.io/Battle-of-Citium/Es.html
+
+https://konnitiwa768.github.io/Battle-of-Citium/Akarlug.html
 https://konnitiwa768.github.io/Battle-of-Citium/Testk.html
 
 https://konnitiwa768.github.io/Battle-of-Citium/Crystal2.html
