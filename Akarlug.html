@@ -2,18 +2,19 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>アカルグ語辞書編集 + フリックキーボード</title>
+<title>アカルグ語辞書編集 完全版</title>
 <style>
-body { font-family: "Noto Sans", sans-serif; display: flex; gap: 20px; margin: 20px; background:#f5f5f5; }
+body { font-family:"Noto Sans",sans-serif; display:flex; gap:20px; margin:20px; background:#f5f5f5; }
 #main { flex:1; max-width:800px; }
-#keyboard { width:340px; background:#fff; border-radius:10px; padding:10px; box-shadow:0 2px 8px rgba(0,0,0,0.15); position:sticky; top:20px; display:grid; grid-template-columns: repeat(10, 1fr); gap:4px; }
-.key { background:#e6e6e6; border:none; border-radius:6px; font-size:16px; height:40px; cursor:pointer; position:relative; user-select:none; }
+#keyboard { width:340px; background:#fff; border-radius:10px; padding:5px; box-shadow:0 2px 8px rgba(0,0,0,0.15); position:sticky; top:20px; display:grid; grid-template-columns: repeat(10,1fr); gap:2px; }
+.key { background:#e6e6e6; border:none; border-radius:4px; font-size:14px; height:28px; cursor:pointer; position:relative; user-select:none; }
 .key:hover { background:#ccc; }
-.flick { display:none; position:absolute; background:#fff; padding:4px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display:grid; grid-template-columns:3fr 1fr 3fr; gap:2px; }
-.flick span { display:block; padding:4px; background:#ddd; border-radius:4px; text-align:center; cursor:pointer; }
+.flick { display:none; position:absolute; background:#fff; padding:2px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display:grid; grid-template-columns:1fr 1fr 1fr; gap:2px; top:-32px; left:-2px; }
+.flick span { display:block; padding:2px; background:#ddd; border-radius:4px; text-align:center; cursor:pointer; font-size:12px; }
+
 input, textarea, select, button { display:block; margin:6px 0; padding:6px; width:100%; max-width:500px; }
 textarea{height:80px;}
-pre{background:#fff;padding:10px;overflow:auto;}
+pre{background:#fff;padding:10px;overflow:auto; max-height:200px;}
 </style>
 </head>
 <body>
@@ -36,6 +37,21 @@ pre{background:#fff;padding:10px;overflow:auto;}
 <button onclick="loadWord()">読み込み</button>
 <pre id="wordResult"></pre>
 
+<div id="equivalentHelper"></div>
+
+<hr>
+<h2>検索</h2>
+<input id="searchText" placeholder="検索文字列">
+<select id="searchMode">
+<option value="both">単語＋訳語</option>
+<option value="name">単語名</option>
+<option value="equivalent">訳語</option>
+<option value="tag">タグ</option>
+<option value="information">内容</option>
+</select>
+<button onclick="searchWords()">検索</button>
+<pre id="searchResult"></pre>
+
 <hr>
 <h2>例文作成/編集/削除</h2>
 <input id="editExampleNumber" placeholder="例文番号">
@@ -50,62 +66,59 @@ pre{background:#fff;padding:10px;overflow:auto;}
 <div id="keyboard"></div>
 
 <script>
-const kbLayout = [
-  ['q','','w','','e','ē','r','t','ṭ','y','u','ū','i','ī','o','ō','p'],
-  ['a','ā','s','ś','ṣ','d','ḍ','f','g','h','j','k','l'],
-  ['z','x','c','v','b','n','ñ','ṃ','m']
+const kbLayout=[
+['q','','w','','e','r','t','ṭ','y','u','ū','i','ī','o','ō','p'],
+['a','ā','s','ś','ṣ','d','ḍ','f','g','h','j','k','l'],
+['z','x','c','v','b','n','ñ','ṃ','m']
 ];
-
-const flickMap = {
-  'a':['ā','á','à','â'],
-  'e':['ē','é','è','ê'],
-  'i':['ī','í','ì','î'],
-  'o':['ō','ó','ò','ô'],
-  'u':['ū','ú','ù','û'],
-  's':['ś','ṣ'],
-  't':['ṭ'],
-  'd':['ḍ'],
-  'n':['ñ','ṃ','ṇ']
+const flickMap={
+'a':['ā','á','à','â'],
+'e':['ē','é','è','ê'],
+'i':['ī','í','ì','î'],
+'o':['ō','ó','ò','ô'],
+'u':['ū','ú','ù','û'],
+'s':['ś','ṣ'],
+'t':['ṭ'],
+'d':['ḍ'],
+'n':['ñ','ṃ']
 };
 
 const kb=document.getElementById('keyboard');
 let activeInput=null;
 document.querySelectorAll('input,textarea').forEach(el=>el.addEventListener('focus',()=>activeInput=el));
-
 function insertChar(ch){
-  if(!activeInput) return;
-  const s=activeInput.selectionStart,e=activeInput.selectionEnd;
-  const val=activeInput.value;
-  activeInput.value=val.slice(0,s)+ch+val.slice(e);
-  activeInput.focus();
-  activeInput.selectionStart=activeInput.selectionEnd=s+ch.length;
+if(!activeInput) return;
+const s=activeInput.selectionStart,e=activeInput.selectionEnd;
+const val=activeInput.value;
+activeInput.value=val.slice(0,s)+ch+val.slice(e);
+activeInput.focus();
+activeInput.selectionStart=activeInput.selectionEnd=s+ch.length;
 }
-
 function createKey(ch){
-  const btn=document.createElement('button');
-  btn.className='key';
-  btn.textContent=ch;
-  btn.addEventListener('click',()=>insertChar(ch));
-
-  if(flickMap[ch]){
-    const flickDiv=document.createElement('div');
-    flickDiv.className='flick';
-    flickMap[ch].forEach(fc=>{
-      const sp=document.createElement('span');
-      sp.textContent=fc;
-      sp.onclick=()=>insertChar(fc);
-      flickDiv.appendChild(sp);
-    });
-    btn.appendChild(flickDiv);
-
-    let timer=null;
-    btn.addEventListener('touchstart',()=>{ timer=setTimeout(()=>flickDiv.style.display='grid',300); });
-    btn.addEventListener('touchend',()=>{ clearTimeout(timer); setTimeout(()=>flickDiv.style.display='none',300); });
-  }
-  return btn;
+const btn=document.createElement('button'); btn.className='key'; btn.textContent=ch; btn.addEventListener('click',()=>insertChar(ch));
+if(flickMap[ch]){
+  const flickDiv=document.createElement('div'); flickDiv.className='flick';
+  flickMap[ch].forEach(fc=>{ const sp=document.createElement('span'); sp.textContent=fc; sp.onclick=()=>insertChar(fc); flickDiv.appendChild(sp); });
+  btn.appendChild(flickDiv);
+  let timer=null;
+  btn.addEventListener('touchstart',()=>{ timer=setTimeout(()=>flickDiv.style.display='grid',300); });
+  btn.addEventListener('touchend',()=>{ clearTimeout(timer); setTimeout(()=>flickDiv.style.display='none',300); });
 }
-
+return btn;
+}
 kbLayout.flat().filter(Boolean).forEach(ch=>kb.appendChild(createKey(ch)));
+
+// equivalents補助
+function generateEquivalentInput(equivalents){
+  const container=document.createElement('div'); container.id='equivalentHelper';
+  equivalents.forEach(eq=>{
+    if(eq.names.length>1){
+      const btn=document.createElement('button'); btn.textContent='||'+eq.names.slice(1).join(','); btn.onclick=()=>{ insertChar(btn.textContent); };
+      container.appendChild(btn);
+    }
+  });
+  return container;
+}
 
 // --- ZpDIC API操作 ---
 const apiBase='https://zpdic.ziphil.com/api/v0';
@@ -124,7 +137,8 @@ async function submitWord(){
 }
 
 async function loadWord(){
-  const id=document.getElementById('editWordNumber').value.trim();if(!id)return alert('番号を入力');
+  const id=document.getElementById('editWordNumber').value.trim();
+  if(!id)return alert('番号を入力');
   const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/word/${id}`,{headers:getHeaders()});
   const w=(await res.json()).word;
   document.getElementById('editWordName').value=w.name||'';
@@ -133,13 +147,42 @@ async function loadWord(){
   document.getElementById('editVariations').value=(w.variations||[]).map(v=>v.name).join('|');
   document.getElementById('editInformations').value=(w.informations||[]).map(i=>i.title+'|'+i.text).join('\n');
   document.getElementById('editEquivalents').value=(w.equivalents||[]).map(eq=>`${(eq.titles||[]).join('|')}||${(eq.names||[]).join(',')}`).join('\n');
+  // equivalents補助
+  const eqDiv=document.getElementById('equivalentHelper');
+  if(eqDiv) eqDiv.replaceWith(generateEquivalentInput(w.equivalents));
+  else document.getElementById('main').appendChild(generateEquivalentInput(w.equivalents));
   document.getElementById('wordResult').textContent=JSON.stringify(w,null,2);
 }
 
-async function deleteWord(){const id=document.getElementById('editWordNumber').value.trim();if(!id)return alert('番号');const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/word/${id}`,{method:'DELETE',headers:getHeaders()});alert(res.ok?'✅削除':'❌'+res.status);}
-async function submitExample(){const id=document.getElementById('editExampleNumber').value.trim();const path=id?`/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${encodeURIComponent(id)}`:`/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example`;const method=id?'PUT':'POST';const body={example:{sentence:document.getElementById('editSentence').value.trim(),translation:document.getElementById('editTranslation').value.trim(),tags:[]}};const res=await fetch(apiBase+path,{method,headers:getHeaders(),body:JSON.stringify(body)});alert(res.ok?`✅例文 ${id?'更新':'作成'} 成功`:`❌ ${res.status}`);}
-async function loadExample(){const id=document.getElementById('editExampleNumber').value.trim();const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${id}`,{headers:getHeaders()});const ex=(await res.json()).example;document.getElementById('editSentence').value=ex.sentence||'';document.getElementById('editTranslation').value=ex.translation||'';}
-async function deleteExample(){const id=document.getElementById('editExampleNumber').value.trim();const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${id}`,{method:'DELETE',headers:getHeaders()});alert(res.ok?'✅削除':'❌'+res.status);}
+async function deleteWord(){
+  const id=document.getElementById('editWordNumber').value.trim(); if(!id)return alert('番号を入力');
+  const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/word/${id}`,{method:'DELETE',headers:getHeaders()});
+  alert(res.ok?'✅ 削除成功':`❌ エラー ${res.status}`);
+}
+
+async function searchWords(){
+  const dict=document.getElementById('dictionaryId').value.trim(); const text=document.getElementById('searchText').value.trim();
+  if(!dict||!text)return alert('入力必要');
+  const params=new URLSearchParams({text,mode:document.getElementById('searchMode').value,type:'part',ignoreCase:'true',skip:'0',limit:'100'});
+  const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(dict)}/words?${params}`,{headers:getHeaders()});
+  const js=await res.json();
+  document.getElementById('searchResult').textContent=JSON.stringify(js.words||js,null,2);
+}
+
+// 例文操作
+async function submitExample(){ const id=document.getElementById('editExampleNumber').value.trim();
+  const path=id?`/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${id}`:
+    `/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example`;
+  const method=id?'PUT':'POST';
+  const body={example:{sentence:document.getElementById('editSentence').value.trim(),translation:document.getElementById('editTranslation').value.trim(),tags:[],words:[],offer:null}};
+  const res=await fetch(apiBase+path,{method,headers:getHeaders(),body:JSON.stringify(body)});
+  alert(res.ok?`✅ 例文 ${id?'更新':'作成'} 成功`:`❌ エラー ${res.status}`);
+}
+async function loadExample(){ const id=document.getElementById('editExampleNumber').value.trim(); if(!id)return alert('番号入力'); const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${id}`,{headers:getHeaders()});
+  const ex=(await res.json()).example;
+  document.getElementById('editSentence').value=ex.sentence||''; document.getElementById('editTranslation').value=ex.translation||''; document.getElementById('exampleResult').textContent=JSON.stringify(ex,null,2);
+}
+async function deleteExample(){ const id=document.getElementById('editExampleNumber').value.trim(); if(!id)return alert('番号入力'); const res=await fetch(`${apiBase}/dictionary/${encodeURIComponent(document.getElementById('dictionaryId').value)}/example/${id}`,{method:'DELETE',headers:getHeaders()}); alert(res.ok?'✅ 削除成功':`❌ エラー ${res.status}`);}
 </script>
 </body>
 </html>
